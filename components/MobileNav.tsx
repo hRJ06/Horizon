@@ -1,28 +1,32 @@
 "use client";
-import React from "react";
+
 import {
   Sheet,
   SheetClose,
   SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { sidebarLinks } from "@/constants";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
-import { sidebarLinks } from "@/constants";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 
 const MobileNav = ({ user }: MobileNavProps) => {
-  const pathName = usePathname();
+  const pathname = usePathname();
+
   return (
-    <section className="w-full max-w-[264px]">
+    <section className="w-fulll max-w-[264px]">
       <Sheet>
         <SheetTrigger>
           <Image
             src="/icons/hamburger.svg"
-            alt="menu"
             width={30}
             height={30}
+            alt="menu"
             className="cursor-pointer"
           />
         </SheetTrigger>
@@ -33,11 +37,11 @@ const MobileNav = ({ user }: MobileNavProps) => {
           >
             <Image
               src="/icons/logo.svg"
-              alt="horizon-logo"
               width={34}
               height={34}
+              alt="Horizon logo"
             />
-            <h1 className="sidebar-logo text-26 font-ibm-plex-serif font-bold text-black-1">
+            <h1 className="text-26 font-ibm-plex-serif font-bold text-black-1">
               Horizon
             </h1>
           </Link>
@@ -46,10 +50,11 @@ const MobileNav = ({ user }: MobileNavProps) => {
               <nav className="flex h-full flex-col gap-6 pt-16 text-white">
                 {sidebarLinks.map((item) => {
                   const isActive =
-                    pathName === item.route ||
-                    pathName.startsWith(`${item.route}/`);
+                    pathname === item.route ||
+                    pathname.startsWith(`${item.route}/`);
+
                   return (
-                    <SheetClose key={item.route} asChild>
+                    <SheetClose asChild key={item.route}>
                       <Link
                         href={item.route}
                         key={item.label}
@@ -77,8 +82,10 @@ const MobileNav = ({ user }: MobileNavProps) => {
                     </SheetClose>
                   );
                 })}
+                USER
               </nav>
             </SheetClose>
+            FOOTER
           </div>
         </SheetContent>
       </Sheet>
