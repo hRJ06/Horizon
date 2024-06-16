@@ -10,9 +10,11 @@ import { Form } from "@/components/ui/form";
 import CustomInput from "./CustomInput";
 import { authFormSchema } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
-import { signUp } from "@/lib/actions/user.actions";
+import { signIn, signUp } from "@/lib/actions/user.actions";
+import { useRouter } from "next/navigation";
 
 const AuthForm = ({ type }: { type: string }) => {
+  const router = useRouter();
   const formSchema = authFormSchema(type);
   const [isLoading, setIsLoading] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -28,12 +30,16 @@ const AuthForm = ({ type }: { type: string }) => {
     try {
       if (type === "sign-up") {
         const newUser = await signUp(data);
-        console.log(newUser);
         setUser(newUser);
       }
-      // if (type === "sign-in") {
-      //   const newUser = await signIn(data);
-      // }
+      if (type === "sign-in") {
+        const response = await signIn({
+          email: data.email,
+          password: data.password,
+        });
+        console.log(response)
+        if (response) router.push("/");
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -69,8 +75,7 @@ const AuthForm = ({ type }: { type: string }) => {
         </div>
       </header>
       {user ? (
-        <div className="flex flex-col gap-4">
-        </div>
+        <div className="flex flex-col gap-4"></div>
       ) : (
         <>
           <Form {...form}>
