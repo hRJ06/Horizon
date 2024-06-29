@@ -1,6 +1,6 @@
 "use server";
 
-import { ID } from "node-appwrite";
+import { ID, Query } from "node-appwrite";
 import { createAdminClient, createSessionClient } from "../appwrite";
 import { cookies } from "next/headers";
 import { encryptId, extractCustomerIdFromUrl, parseStringify } from "../utils";
@@ -128,7 +128,7 @@ export const createBankAccount = async ({
   accountId,
   accessToken,
   fundingSourceUrl,
-  sharableId,
+  shareableId,
 }: createBankAccountProps) => {
   try {
     const { database } = await createAdminClient();
@@ -136,7 +136,7 @@ export const createBankAccount = async ({
       DATABASE_ID!,
       BANK_COLLECTION_ID!,
       ID.unique(),
-      { userId, bankId, accountId, accessToken, fundingSourceUrl, sharableId }
+      { userId, bankId, accountId, accessToken, fundingSourceUrl, shareableId }
     );
     return parseStringify(bankAccount);
   } catch (error) {}
@@ -157,7 +157,8 @@ export const exchangePublicToken = async ({
     const accountResponse = await plaidClient.accountsGet({
       access_token: accessToken,
     });
-    const accountData = accountResponse.data.accounts[0];
+    const accountData =
+      accountResponse.data.accounts[0]; /* TODO: Default Behaviour*/
     /* https://plaid.com/docs/auth/partnerships/dwolla/ */
     const request: ProcessorTokenCreateRequest = {
       access_token: accessToken,
@@ -178,18 +179,64 @@ export const exchangePublicToken = async ({
       bankName: accountData.name /* Funding Source Name */,
     });
     if (!fundingSourceUrl) throw Error;
-    await createBankAccount({
+    const bankAccount = await createBankAccount({
       userId: user.$id,
       bankId: itemId,
       accountId: accountData.account_id,
       accessToken,
       fundingSourceUrl,
-      sharableId: encryptId(accountData.account_id),
+      shareableId: encryptId(accountData.account_id),
     });
     revalidatePath("/");
     return parseStringify({
       publicTokenExchange: "complete",
     });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+export const getBank = async ({ documentId }: getBankProps) => {
+  try {
+    /* https://appwrite.io/docs/products/databases/documents */
+    const { database } = await createAdminClient();
+    const bank = await database.listDocuments(
+      DATABASE_ID!,
+      BANK_COLLECTION_ID!,
+      [Query.equal("$id", [documentId])]
+    );
+    return parseStringify(bank.documents[0]);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+export const getBankByAccountId = async ({
+  accountId,
+}: getBankByAccountIdProps) => {
+  try {
+    const { database } = await createAdminClient();
+    const bank = await database.listDocuments(
+      DATABASE_ID!,
+      BANK_COLLECTION_ID!,
+      [Query.equal("accountId", [accountId])]
+    );
+    if (bank.total !== 1) return null;
+    return parseStringify(bank.documents[0]);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+export const getBanks = async ({ userId }: getBanksProps) => {
+  try {
+    const { database } = await createAdminClient();
+    const banks = await database.listDocuments(
+      DATABASE_ID!,
+      BANK_COLLECTION_ID!,
+      [Query.equal("userId", [userId])]
+    );
+    return parseStringify(banks.documents);
   } catch (error) {
     console.error(error);
   }
