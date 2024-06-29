@@ -3,8 +3,15 @@
 import { ID } from "node-appwrite";
 import { createAdminClient, createSessionClient } from "../appwrite";
 import { cookies } from "next/headers";
-import { parseStringify } from "../utils";
-
+import { encryptId, parseStringify } from "../utils";
+import {
+  CountryCode,
+  ProcessorTokenCreateRequest,
+  ProcessorTokenCreateRequestProcessorEnum,
+  Products,
+} from "plaid";
+import { plaidClient } from "@/lib/plaid";
+import { revalidatePath } from "next/cache";
 export const signIn = async ({ email, password }: signInProps) => {
   try {
     const { account } = await createAdminClient();
@@ -66,5 +73,75 @@ export const logoutAccount = async () => {
   } catch (error) {
     console.error(error);
     return null;
+  }
+};
+
+export const createLinkToken = async (user: User) => {
+  try {
+    /* https://plaid.com/docs/api/tokens/#create-a-link_token */
+    const tokenParams = {
+      user: {
+        client_user_id: user.$id,
+      },
+      client_name: user.name,
+      products: ["auth"] as Products[],
+      language: "en",
+      country_codes: ["US"] as CountryCode[],
+    };
+    const response = await plaidClient.linkTokenCreate(tokenParams);
+    return parseStringify({ linkToken: response.data.link_token });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+export const exchangePublicToken = async ({
+  publicToken,
+  user,
+}: exchangePublicTokenProps) => {
+  try {
+    /* https://plaid.com/docs/api/tokens/#itempublic_tokenexchange */
+    const response = await plaidClient.itemPublicTokenExchange({
+      public_token: publicToken,
+    });
+    const accessToken = response.data.access_token;
+    const itemId = response.data.item_id;
+    /* https://plaid.com/docs/api/accounts/#accountsget */
+    const accountResponse = await plaidClient.accountsGet({
+      access_token: accessToken,
+    });
+    const accountData = accountResponse.data.accounts[0];
+    /* https://plaid.com/docs/auth/partnerships/dwolla/ */
+    const request: ProcessorTokenCreateRequest = {
+      access_token: accessToken,
+      account_id: accountData.account_id,
+      processor: "dwolla" as ProcessorTokenCreateRequestProcessorEnum,
+    };
+    const processorTokenResponse = await plaidClient.processorTokenCreate(
+      request
+    );
+    const processorToken = processorTokenResponse.data.processor_token;
+    /* https://github.com/plaid/pattern-account-funding/blob/master/server/routes/items.js#L126-L135 */
+    /* Once you've obtained the processor_token, you'll then pass it to Dwolla as the value of the plaidToken request parameter, along with a funding source name, to create a funding source for a Dwolla Customer */
+    const fundingSourceUrl = await addFundingSource({
+      dwollaCustomerId: user.dwollaCustomerId,
+      processorToken,
+      bankName: accountData.name,
+    });
+    if (!fundingSourceUrl) throw Error;
+    await createBankAccount({
+      userId: user.$id,
+      bankId: itemId,
+      accountId: accountData.account_id,
+      accessToken,
+      fundingSourceUrl,
+      sharableId: encryptId(accountData.account_id),
+    });
+    revalidatePath("/");
+    return parseStringify({
+      publicTokenExchange: "complete",
+    });
+  } catch (error) {
+    console.error(error);
   }
 };
