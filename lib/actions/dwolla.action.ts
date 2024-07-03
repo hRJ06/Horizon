@@ -69,6 +69,7 @@ export const createTransfer = async ({
   amount,
 }: TransferParams) => {
   try {
+    /* https://developers.dwolla.com/docs/balance/transfer-money-between-users/create-transfer */
     const requestBody = {
       _links: {
         source: {
@@ -106,7 +107,7 @@ export const addFundingSource = async ({
       fundingSourceName: bankName,
       plaidToken: processorToken,
       _links: dwollaAuthLinks,
-    };  
+    };
     return await createFundingSource(fundingSourceOptions);
   } catch (err) {
     console.error("Transfer fund failed: ", err);
